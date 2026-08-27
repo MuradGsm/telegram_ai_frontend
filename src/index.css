@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  @apply bg-ink-950 text-ink-100 font-body antialiased;
+}
+
+::selection {
+  background: #5B6EF5;
+  color: white;
+}
+
+/* видимый фокус для доступности */
+:focus-visible {
+  outline: 2px solid #5B6EF5;
+  outline-offset: 2px;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #2B3440;
+  border-radius: 999px;
+}

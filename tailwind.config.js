@@ -16,12 +16,21 @@ export default {
         },
         signal: {
           DEFAULT: '#5B6EF5',
-          soft: '#EDEFFE',
+          soft: 'rgba(91, 110, 245, 0.15)',
           strong: '#4351C9',
         },
-        good: '#1F9D6B',
-        warn: '#D68A1F',
-        bad: '#D6483F',
+        good: {
+          DEFAULT: '#1F9D6B',
+          soft: 'rgba(31, 157, 107, 0.15)',
+        },
+        warn: {
+          DEFAULT: '#D68A1F',
+          soft: 'rgba(214, 138, 31, 0.15)',
+        },
+        bad: {
+          DEFAULT: '#D6483F',
+          soft: 'rgba(214, 72, 63, 0.15)',
+        },
       },
       fontFamily: {
         display: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
@@ -29,7 +38,7 @@ export default {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       borderRadius: {
-        xl2: '1.25rem',
+        '2xl': '1.25rem',
       },
     },
   },

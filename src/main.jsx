@@ -5,7 +5,13 @@ import App from './App.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import './index.css'
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const rootElement = document.getElementById('root')
+
+if (!rootElement) {
+  throw new Error('Корневой элемент #root не найден в DOM. Проверь index.html.')
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>

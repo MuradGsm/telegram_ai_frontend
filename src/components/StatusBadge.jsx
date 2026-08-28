@@ -7,7 +7,7 @@ const DIALOG_STATUS = {
 
 const DOCUMENT_STATUS = {
   uploaded: { label: 'Загружен', dot: 'bg-ink-400', text: 'text-ink-400' },
-  processing: { label: 'Обрабатывается', dot: 'bg-signal', text: 'text-signal' },
+  processing: { label: 'Обрабатывается', dot: 'bg-signal animate-pulse', text: 'text-signal' },
   indexed: { label: 'Готов', dot: 'bg-good', text: 'text-good' },
   failed: { label: 'Ошибка', dot: 'bg-bad', text: 'text-bad' },
 }
@@ -15,8 +15,8 @@ const DOCUMENT_STATUS = {
 export function DialogStatusBadge({ status }) {
   const cfg = DIALOG_STATUS[status] || DIALOG_STATUS.closed
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-medium ${cfg.text}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+    <span className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium ${cfg.text}`}>
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
       {cfg.label}
     </span>
   )
@@ -26,10 +26,10 @@ export function DocumentStatusBadge({ status, errorMessage }) {
   const cfg = DOCUMENT_STATUS[status] || DOCUMENT_STATUS.uploaded
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs font-medium ${cfg.text}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-medium ${cfg.text}`}
       title={status === 'failed' ? errorMessage || undefined : undefined}
     >
-      <span className={`h-1.5 w-1.5 rounded-full ${cfg.dot}`} />
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
       {cfg.label}
     </span>
   )

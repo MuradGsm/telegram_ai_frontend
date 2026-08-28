@@ -1,13 +1,15 @@
 import axios from 'axios'
 
-// Базовый адрес бэкенда. Меняй здесь, если бэк крутится не на 8000 порту,
-// либо создай .env файл с VITE_API_URL и используй import.meta.env.VITE_API_URL
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+// Корректная обработка WebSocket URL как для http -> ws, так и для https -> wss
+export const WS_URL = API_URL.startsWith('https://')
+  ? API_URL.replace(/^https:\/\//, 'wss://')
+  : API_URL.replace(/^http:\/\//, 'ws://')
 
 export const api = axios.create({
   baseURL: API_URL,
   headers: {
-    // обходит межстраничную заглушку-предупреждение бесплатного ngrok
     'ngrok-skip-browser-warning': 'true',
   },
 })
@@ -20,8 +22,8 @@ function getTokens() {
 }
 
 export function setTokens({ access_token, refresh_token }) {
-  localStorage.setItem('access_token', access_token)
-  localStorage.setItem('refresh_token', refresh_token)
+  if (access_token) localStorage.setItem('access_token', access_token)
+  if (refresh_token) localStorage.setItem('refresh_token', refresh_token)
 }
 
 export function clearTokens() {
@@ -33,10 +35,7 @@ export function getAccessToken() {
   return localStorage.getItem('access_token')
 }
 
-// wss:// для https-бэкенда, ws:// для http (локальная разработка)
-export const WS_URL = API_URL.replace(/^http/, 'ws')
-
-// подставляем access-токен в каждый запрос
+// Подставляем access-токен в каждый запрос
 api.interceptors.request.use((config) => {
   const { access } = getTokens()
   if (access) {
@@ -45,7 +44,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// при 401 пробуем один раз обновить токен через /auth/refresh
+// Автоматический рефреш токена с дедупликацией запросов
 let refreshPromise = null
 
 api.interceptors.response.use(
@@ -54,7 +53,8 @@ api.interceptors.response.use(
     const original = error.config
     const status = error.response?.status
 
-    if (status === 401 && !original._retry) {
+    // Проверяем статус 401 и исключаем повторный цикл для запроса рефреша
+    if (status === 401 && !original._retry && !original.url?.includes('/auth/refresh')) {
       original._retry = true
       const { refresh } = getTokens()
 
@@ -87,13 +87,12 @@ api.interceptors.response.use(
   },
 )
 
-// Хелпер, чтобы вытащить понятное сообщение об ошибке из ответа FastAPI
 export function extractErrorMessage(error) {
   const detail = error?.response?.data?.detail
   if (!detail) return 'Что-то пошло не так. Попробуй ещё раз.'
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) {
-    return detail.map((d) => d.msg).join('; ')
+    return detail.map((d) => d.msg || d.detail).join('; ')
   }
   return 'Что-то пошло не так. Попробуй ещё раз.'
 }

@@ -127,14 +127,14 @@ export default function DialogDetail() {
   const connIndicator = CONNECTION_LABEL[connectionState]
 
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col px-4 py-4 sm:px-8 sm:py-10">
-      {/* Шапка чата */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mx-auto flex h-full w-full max-w-3xl flex-col overflow-x-hidden px-3 py-4 sm:px-8 sm:py-8">
+      {/* Шапка диалога */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link to={`/workspaces/${workspaceId}/dialogs`} className="text-xs text-ink-400 hover:text-ink-200">
+          <Link to={`/workspaces/${workspaceId}/dialogs`} className="inline-block whitespace-nowrap text-xs text-ink-400 hover:text-ink-200">
             ← Все диалоги
           </Link>
-          <h1 className="mt-1 font-display text-lg font-semibold text-ink-100 sm:text-xl">
+          <h1 className="mt-1 font-display text-lg font-semibold text-ink-100 sm:text-xl break-words">
             {dialog.customer_display_name || `Клиент #${dialog.customer_telegram_id}`}
           </h1>
           <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-600">
@@ -142,14 +142,14 @@ export default function DialogDetail() {
             {connIndicator.text}
           </div>
         </div>
-        
-        <div className="flex items-center justify-between sm:justify-end gap-3 border-t border-ink-800/60 pt-2 sm:border-t-0 sm:pt-0">
+
+        <div className="flex items-center justify-between sm:justify-end gap-2 border-t border-ink-800/60 pt-2 sm:border-t-0 sm:pt-0">
           <DialogStatusBadge status={dialog.status} />
           {!isClosed && (
             <button
               onClick={handleClose}
               disabled={closing}
-              className="rounded-lg border border-ink-600 px-3 py-1.5 text-xs font-medium text-ink-200 hover:bg-ink-800 disabled:opacity-60"
+              className="whitespace-nowrap rounded-lg border border-ink-600 px-3 py-1.5 text-xs font-medium text-ink-200 hover:bg-ink-800 disabled:opacity-60"
             >
               {closing ? 'Закрываю...' : 'Закрыть диалог'}
             </button>
@@ -157,12 +157,12 @@ export default function DialogDetail() {
         </div>
       </div>
 
-      {/* История сообщений */}
-      <div className="mt-4 sm:mt-6 flex flex-1 flex-col gap-3 overflow-y-auto scrollbar-thin pr-1">
+      {/* Список сообщений */}
+      <div className="mt-4 flex flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden scrollbar-thin pr-1">
         {dialog.messages.map((m) => (
           <div
             key={m.id}
-            className={`flex max-w-[88%] sm:max-w-[75%] flex-col ${
+            className={`flex max-w-[85%] sm:max-w-[75%] flex-col ${
               BUBBLE_STYLE[m.sender]?.includes('self-end')
                 ? 'self-end items-end'
                 : BUBBLE_STYLE[m.sender]?.includes('self-center')
@@ -170,7 +170,7 @@ export default function DialogDetail() {
                   : 'self-start items-start'
             }`}
           >
-            <div className={`rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 text-sm ${BUBBLE_STYLE[m.sender] || BUBBLE_STYLE.customer}`}>
+            <div className={`rounded-xl px-3.5 py-2 sm:px-4 sm:py-2.5 text-sm break-words whitespace-pre-wrap ${BUBBLE_STYLE[m.sender] || BUBBLE_STYLE.customer}`}>
               {m.content}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5 px-1 text-[10px] sm:text-[11px] text-ink-600">
@@ -189,21 +189,21 @@ export default function DialogDetail() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Форма ввода сообщения */}
+      {/* Поле ответа */}
       {!isClosed ? (
-        <form onSubmit={handleReply} className="mt-3 sm:mt-4 flex gap-2 border-t border-ink-800 pt-3 sm:pt-4">
+        <form onSubmit={handleReply} className="mt-3 flex gap-2 border-t border-ink-800 pt-3">
           <input
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             maxLength={4000}
             disabled={sendingReply || connectionState !== 'open'}
             placeholder={connectionState === 'open' ? 'Ответить клиенту...' : 'Переподключение...'}
-            className="flex-1 rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 sm:px-3.5 sm:py-2.5 text-sm text-ink-100 outline-none focus:border-signal disabled:opacity-60"
+            className="w-full flex-1 min-w-0 rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-sm text-ink-100 outline-none focus:border-signal disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={sendingReply || !reply.trim() || connectionState !== 'open'}
-            className="flex items-center justify-center gap-2 rounded-lg bg-signal px-3.5 sm:px-4 py-2 sm:py-2.5 text-sm font-medium text-white hover:bg-signal-strong disabled:opacity-50"
+            className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-signal px-3.5 sm:px-4 py-2 text-sm font-medium text-white hover:bg-signal-strong disabled:opacity-50"
           >
             {sendingReply && <Spinner size={14} />}
             <span className="hidden sm:inline">{sendingReply ? 'Отправляется...' : 'Отправить'}</span>
@@ -214,7 +214,7 @@ export default function DialogDetail() {
         <p className="mt-4 border-t border-ink-800 pt-4 text-center text-sm text-ink-600">Диалог закрыт</p>
       )}
 
-      {error && <p className="mt-2 text-xs sm:text-sm text-bad">{error}</p>}
+      {error && <p className="mt-2 text-xs text-bad">{error}</p>}
     </div>
   )
 }

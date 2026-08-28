@@ -3,6 +3,8 @@
 @tailwind utilities;
 
 html, body, #root {
+  min-height: 100vh;
+  min-height: 100dvh;
   height: 100%;
 }
 
@@ -15,16 +17,32 @@ body {
   color: white;
 }
 
-/* видимый фокус для доступности */
+/* Видимый фокус для доступности */
 :focus-visible {
   outline: 2px solid #5B6EF5;
   outline-offset: 2px;
 }
 
+/* Кроссбраузерный тонкий скроллбар */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #2B3440 transparent;
+}
+
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: #2B3440;
-  border-radius: 999px;
+  border-radius: 9999px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #3B4654;
 }

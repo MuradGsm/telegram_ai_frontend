@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import Spinner from '../components/Spinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
@@ -29,6 +29,9 @@ export default function Dialogs() {
     api
       .get(`/workspaces/${workspaceId}/dialogs`, { params: status ? { status } : {} })
       .then(({ data }) => setDialogs(data))
+      .catch((err) => {
+        console.error('Ошибка загрузки диалогов:', err)
+      })
       .finally(() => setLoading(false))
   }
 
@@ -74,7 +77,7 @@ export default function Dialogs() {
                 onClick={() => navigate(`/workspaces/${workspaceId}/dialogs/${d.id}`)}
                 className="flex w-full flex-col gap-2 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4 hover:bg-ink-900 transition-colors"
               >
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 text-left">
                   <p className="truncate text-sm font-medium text-ink-100">
                     {d.customer_display_name || `Клиент #${d.customer_telegram_id}`}
                   </p>

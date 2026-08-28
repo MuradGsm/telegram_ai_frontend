@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { api, extractErrorMessage } from '../api/client'
 import Spinner from '../components/Spinner.jsx'
 
@@ -26,6 +26,9 @@ export default function WorkspaceOverview() {
       .then(({ data }) => {
         setWorkspace(data)
         setOwnerTelegramId(data.owner_telegram_id || '')
+      })
+      .catch((err) => {
+        console.error('Ошибка загрузки воркспейса:', err)
       })
       .finally(() => setLoading(false))
   }
@@ -59,6 +62,8 @@ export default function WorkspaceOverview() {
         owner_telegram_id: ownerTelegramId ? Number(ownerTelegramId) : null,
       })
       setWorkspace(data)
+    } catch (err) {
+      console.error('Ошибка сохранения владельца:', err)
     } finally {
       setSavingOwner(false)
     }
@@ -70,6 +75,8 @@ export default function WorkspaceOverview() {
     try {
       await api.delete(`/workspaces/${workspaceId}`)
       navigate('/workspaces')
+    } catch (err) {
+      console.error('Ошибка удаления:', err)
     } finally {
       setDeleting(false)
     }
@@ -143,7 +150,7 @@ export default function WorkspaceOverview() {
         </form>
       </section>
 
-      {/* Владелец в Telegram (получает эскалации) */}
+      {/* Владелец в Telegram */}
       <section className="mt-4 rounded-xl border border-ink-700 bg-ink-900 p-4 sm:mt-6 sm:p-5">
         <h2 className="font-display text-sm font-medium text-ink-100 sm:text-base">
           Telegram ID владельца

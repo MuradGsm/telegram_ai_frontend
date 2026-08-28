@@ -193,13 +193,13 @@ export default function DialogDetail() {
             onChange={(e) => setReply(e.target.value)}
             maxLength={4000}
             disabled={sendingReply || connectionState !== 'open'}
-            placeholder={connectionState === 'open' ? 'Ответить клиенту от своего имени...' : 'Подключение к чату...'}
+            placeholder={connectionState === 'open' ? 'Ответить клиенту от своего имени...' : 'Переподключение к сокету...'}
             className="flex-1 rounded-lg border border-ink-700 bg-ink-900 px-3.5 py-2.5 text-sm text-ink-100 outline-none focus:border-signal disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={sendingReply || !reply.trim() || connectionState !== 'open'}
-            className="flex items-center gap-2 rounded-lg bg-signal px-4 py-2.5 text-sm font-medium text-white hover:bg-signal-strong disabled:opacity-60"
+            className="flex items-center gap-2 rounded-lg bg-signal px-4 py-2.5 text-sm font-medium text-white hover:bg-signal-strong disabled:opacity-50"
           >
             {sendingReply && <Spinner size={14} />}
             {sendingReply ? 'Отправляется...' : 'Отправить'}

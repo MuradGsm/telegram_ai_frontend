@@ -14,12 +14,12 @@ export function useDialogSocket(workspaceId, dialogId, handlers) {
   handlersRef.current = handlers
 
   const connect = useCallback(() => {
+    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
+
     const token = getAccessToken()
-    
-    // Очищаем WS_URL от лишних слэшей в конце
     const cleanWsUrl = (WS_URL || '').replace(/\/+$/, '')
     const url = `${cleanWsUrl}/workspaces/${workspaceId}/dialogs/${dialogId}/ws?token=${encodeURIComponent(token || '')}`
-    
+
     const ws = new WebSocket(url)
     wsRef.current = ws
     setConnectionState('connecting')
@@ -42,12 +42,18 @@ export function useDialogSocket(workspaceId, dialogId, handlers) {
     ws.onclose = () => {
       setConnectionState('closed')
       if (manuallyClosedRef.current) return
+      
       const delay = BACKOFF_STEPS_MS[Math.min(attemptRef.current, BACKOFF_STEPS_MS.length - 1)]
       attemptRef.current += 1
-      reconnectTimerRef.current = setTimeout(connect, delay)
+      
+      reconnectTimerRef.current = setTimeout(() => {
+        connect()
+      }, delay)
     }
 
-    ws.onerror = () => ws.close()
+    ws.onerror = () => {
+      ws.close()
+    }
   }, [workspaceId, dialogId])
 
   useEffect(() => {
@@ -55,9 +61,10 @@ export function useDialogSocket(workspaceId, dialogId, handlers) {
     isFirstConnectionRef.current = true
     attemptRef.current = 0
     connect()
+
     return () => {
       manuallyClosedRef.current = true
-      clearTimeout(reconnectTimerRef.current)
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current)
       wsRef.current?.close()
     }
   }, [connect])

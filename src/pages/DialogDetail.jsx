@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useDialogSocket } from '../hooks/useDialogSocket.js'
@@ -35,22 +35,29 @@ export default function DialogDetail() {
   const messagesEndRef = useRef(null)
   const sendingReplyRef = useRef(false)
 
-  function loadHistory() {
+  const fetchHistory = useCallback(() => {
     return api.get(`/workspaces/${workspaceId}/dialogs/${dialogId}`).then(({ data }) => {
-      setDialog(data)
+      setDialog((prev) => {
+        if (!prev) return data
+        const existingIds = new Set(prev.messages.map((m) => m.id))
+        const newMessagesFromFetch = data.messages.filter((m) => !existingIds.has(m.id))
+        return {
+          ...data,
+          messages: [...prev.messages, ...newMessagesFromFetch],
+        }
+      })
       setLoading(false)
     })
-  }
+  }, [workspaceId, dialogId])
 
   useEffect(() => {
     setLoading(true)
-    loadHistory()
+    fetchHistory()
     setReply('')
     setError('')
     sendingReplyRef.current = false
     setSendingReply(false)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId, dialogId])
+  }, [fetchHistory])
 
   const { connectionState, send } = useDialogSocket(workspaceId, dialogId, {
     onMessage: (msg) => {
@@ -73,7 +80,7 @@ export default function DialogDetail() {
         setSendingReply(false)
       }
     },
-    onReconnect: () => loadHistory(),
+    onReconnect: fetchHistory,
   })
 
   useEffect(() => {
@@ -82,7 +89,7 @@ export default function DialogDetail() {
 
   function handleReply(e) {
     e.preventDefault()
-    if (!reply.trim() || sendingReply) return
+    if (!reply.trim() || sendingReply || connectionState !== 'open') return
     setError('')
     const sent = send({ type: 'reply', content: reply })
     if (!sent) {
@@ -153,16 +160,18 @@ export default function DialogDetail() {
           <div
             key={m.id}
             className={`flex max-w-[75%] flex-col ${
-              BUBBLE_STYLE[m.sender].includes('self-end')
+              BUBBLE_STYLE[m.sender]?.includes('self-end')
                 ? 'self-end items-end'
-                : BUBBLE_STYLE[m.sender].includes('self-center')
+                : BUBBLE_STYLE[m.sender]?.includes('self-center')
                   ? 'self-center items-center'
                   : 'self-start items-start'
             }`}
           >
-            <div className={`rounded-xl2 px-4 py-2.5 text-sm ${BUBBLE_STYLE[m.sender]}`}>{m.content}</div>
+            <div className={`rounded-xl px-4 py-2.5 text-sm ${BUBBLE_STYLE[m.sender] || BUBBLE_STYLE.customer}`}>
+              {m.content}
+            </div>
             <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-ink-600">
-              <span>{SENDER_LABEL[m.sender]}</span>
+              <span>{SENDER_LABEL[m.sender] || m.sender}</span>
               <span>·</span>
               <span>{formatTime(m.created_at)}</span>
               {m.sender === 'bot' && m.confidence_score != null && (
@@ -183,13 +192,13 @@ export default function DialogDetail() {
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             maxLength={4000}
-            disabled={sendingReply}
-            placeholder="Ответить клиенту от своего имени..."
+            disabled={sendingReply || connectionState !== 'open'}
+            placeholder={connectionState === 'open' ? 'Ответить клиенту от своего имени...' : 'Подключение к чату...'}
             className="flex-1 rounded-lg border border-ink-700 bg-ink-900 px-3.5 py-2.5 text-sm text-ink-100 outline-none focus:border-signal disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={sendingReply || !reply.trim()}
+            disabled={sendingReply || !reply.trim() || connectionState !== 'open'}
             className="flex items-center gap-2 rounded-lg bg-signal px-4 py-2.5 text-sm font-medium text-white hover:bg-signal-strong disabled:opacity-60"
           >
             {sendingReply && <Spinner size={14} />}

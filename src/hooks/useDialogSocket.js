@@ -3,15 +3,8 @@ import { WS_URL, getAccessToken } from '../api/client'
 
 const BACKOFF_STEPS_MS = [1000, 2000, 4000, 8000, 15000]
 
-/**
- * Управляет WebSocket-соединением одного диалога.
- *
- * @param {string} workspaceId
- * @param {string} dialogId
- * @param {{ onMessage: (msg:object)=>void, onStatus:(status:string)=>void, onError:(detail:string)=>void, onReconnect:()=>void }} handlers
- */
 export function useDialogSocket(workspaceId, dialogId, handlers) {
-  const [connectionState, setConnectionState] = useState('connecting') // connecting | open | closed
+  const [connectionState, setConnectionState] = useState('connecting')
   const wsRef = useRef(null)
   const reconnectTimerRef = useRef(null)
   const attemptRef = useRef(0)
@@ -22,9 +15,11 @@ export function useDialogSocket(workspaceId, dialogId, handlers) {
 
   const connect = useCallback(() => {
     const token = getAccessToken()
-    const url = `${WS_URL}/workspaces/${workspaceId}/dialogs/${dialogId}/ws?token=${encodeURIComponent(
-      token || '',
-    )}`
+    
+    // Очищаем WS_URL от лишних слэшей в конце
+    const cleanWsUrl = (WS_URL || '').replace(/\/+$/, '')
+    const url = `${cleanWsUrl}/workspaces/${workspaceId}/dialogs/${dialogId}/ws?token=${encodeURIComponent(token || '')}`
+    
     const ws = new WebSocket(url)
     wsRef.current = ws
     setConnectionState('connecting')
@@ -32,26 +27,16 @@ export function useDialogSocket(workspaceId, dialogId, handlers) {
     ws.onopen = () => {
       setConnectionState('open')
       attemptRef.current = 0
-      if (!isFirstConnectionRef.current) {
-        handlersRef.current.onReconnect?.()
-      }
+      if (!isFirstConnectionRef.current) handlersRef.current.onReconnect?.()
       isFirstConnectionRef.current = false
     }
 
     ws.onmessage = (event) => {
       let payload
-      try {
-        payload = JSON.parse(event.data)
-      } catch {
-        return
-      }
-      if (payload.type === 'message') {
-        handlersRef.current.onMessage?.(payload.data)
-      } else if (payload.type === 'status') {
-        handlersRef.current.onStatus?.(payload.data.status)
-      } else if (payload.type === 'error') {
-        handlersRef.current.onError?.(payload.detail)
-      }
+      try { payload = JSON.parse(event.data) } catch { return }
+      if (payload.type === 'message') handlersRef.current.onMessage?.(payload.data)
+      else if (payload.type === 'status') handlersRef.current.onStatus?.(payload.data.status)
+      else if (payload.type === 'error') handlersRef.current.onError?.(payload.detail)
     }
 
     ws.onclose = () => {
@@ -62,10 +47,7 @@ export function useDialogSocket(workspaceId, dialogId, handlers) {
       reconnectTimerRef.current = setTimeout(connect, delay)
     }
 
-    ws.onerror = () => {
-      // onclose тоже сработает следом — реконнект планируется там
-      ws.close()
-    }
+    ws.onerror = () => ws.close()
   }, [workspaceId, dialogId])
 
   useEffect(() => {
@@ -73,7 +55,6 @@ export function useDialogSocket(workspaceId, dialogId, handlers) {
     isFirstConnectionRef.current = true
     attemptRef.current = 0
     connect()
-
     return () => {
       manuallyClosedRef.current = true
       clearTimeout(reconnectTimerRef.current)

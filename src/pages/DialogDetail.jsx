@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { api, extractErrorMessage } from '../api/client'
+import { api } from '../api/client'
+import { useDialogSocket } from '../hooks/useDialogSocket.js'
 import Spinner from '../components/Spinner.jsx'
 import { DialogStatusBadge } from '../components/StatusBadge.jsx'
 
@@ -15,11 +16,12 @@ const BUBBLE_STYLE = {
   system: 'self-center bg-ink-900 text-ink-400 text-xs italic border border-ink-700',
 }
 
-const SENDER_LABEL = {
-  customer: 'Клиент',
-  bot: 'Бот',
-  owner: 'Ты',
-  system: 'Система',
+const SENDER_LABEL = { customer: 'Клиент', bot: 'Бот', owner: 'Ты', system: 'Система' }
+
+const CONNECTION_LABEL = {
+  connecting: { text: 'Подключение...', dot: 'bg-warn' },
+  open: { text: 'Онлайн', dot: 'bg-good' },
+  closed: { text: 'Нет связи, переподключаюсь...', dot: 'bg-bad' },
 }
 
 export default function DialogDetail() {
@@ -27,45 +29,83 @@ export default function DialogDetail() {
   const [dialog, setDialog] = useState(null)
   const [loading, setLoading] = useState(true)
   const [reply, setReply] = useState('')
-  const [sending, setSending] = useState(false)
+  const [sendingReply, setSendingReply] = useState(false)
   const [error, setError] = useState('')
   const [closing, setClosing] = useState(false)
+  const messagesEndRef = useRef(null)
+  const sendingReplyRef = useRef(false)
 
-  function load() {
-    api.get(`/workspaces/${workspaceId}/dialogs/${dialogId}`).then(({ data }) => {
+  function loadHistory() {
+    return api.get(`/workspaces/${workspaceId}/dialogs/${dialogId}`).then(({ data }) => {
       setDialog(data)
       setLoading(false)
     })
   }
 
-  useEffect(load, [workspaceId, dialogId])
-
-  async function handleReply(e) {
-    e.preventDefault()
-    if (!reply.trim()) return
+  useEffect(() => {
+    setLoading(true)
+    loadHistory()
+    setReply('')
     setError('')
-    setSending(true)
-    try {
-      await api.post(`/workspaces/${workspaceId}/dialogs/${dialogId}/reply`, {
-        content: reply,
+    sendingReplyRef.current = false
+    setSendingReply(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId, dialogId])
+
+  const { connectionState, send } = useDialogSocket(workspaceId, dialogId, {
+    onMessage: (msg) => {
+      setDialog((prev) => {
+        if (!prev) return prev
+        if (prev.messages.some((m) => m.id === msg.id)) return prev
+        return { ...prev, messages: [...prev.messages, msg] }
       })
-      setReply('')
-      load()
-    } catch (err) {
-      setError(extractErrorMessage(err))
-    } finally {
-      setSending(false)
+      if (msg.sender === 'owner' && sendingReplyRef.current) {
+        sendingReplyRef.current = false
+        setSendingReply(false)
+        setReply('')
+      }
+    },
+    onStatus: (status) => setDialog((prev) => (prev ? { ...prev, status } : prev)),
+    onError: (detail) => {
+      setError(detail || 'Ошибка соединения')
+      if (sendingReplyRef.current) {
+        sendingReplyRef.current = false
+        setSendingReply(false)
+      }
+    },
+    onReconnect: () => loadHistory(),
+  })
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [dialog?.messages?.length])
+
+  function handleReply(e) {
+    e.preventDefault()
+    if (!reply.trim() || sendingReply) return
+    setError('')
+    const sent = send({ type: 'reply', content: reply })
+    if (!sent) {
+      setError('Нет соединения с сервером. Дождись переподключения и попробуй снова.')
+      return
     }
+    sendingReplyRef.current = true
+    setSendingReply(true)
   }
 
   async function handleClose() {
     setClosing(true)
-    try {
-      const { data } = await api.post(`/workspaces/${workspaceId}/dialogs/${dialogId}/close`)
-      setDialog((prev) => ({ ...prev, status: data.status }))
-    } finally {
-      setClosing(false)
+    const sent = send({ type: 'close_dialog' })
+    if (!sent) {
+      try {
+        const { data } = await api.post(`/workspaces/${workspaceId}/dialogs/${dialogId}/close`)
+        setDialog((prev) => (prev ? { ...prev, status: data.status } : prev))
+      } finally {
+        setClosing(false)
+      }
+      return
     }
+    setClosing(false)
   }
 
   if (loading || !dialog) {
@@ -77,20 +117,22 @@ export default function DialogDetail() {
   }
 
   const isClosed = dialog.status === 'closed'
+  const connIndicator = CONNECTION_LABEL[connectionState]
 
   return (
     <div className="mx-auto flex h-full max-w-3xl flex-col px-8 py-10">
       <div className="flex items-center justify-between">
         <div>
-          <Link
-            to={`/workspaces/${workspaceId}/dialogs`}
-            className="text-xs text-ink-400 hover:text-ink-200"
-          >
+          <Link to={`/workspaces/${workspaceId}/dialogs`} className="text-xs text-ink-400 hover:text-ink-200">
             ← Все диалоги
           </Link>
           <h1 className="mt-1 font-display text-xl font-semibold text-ink-100">
             {dialog.customer_display_name || `Клиент #${dialog.customer_telegram_id}`}
           </h1>
+          <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-600">
+            <span className={`h-1.5 w-1.5 rounded-full ${connIndicator.dot}`} />
+            {connIndicator.text}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <DialogStatusBadge status={dialog.status} />
@@ -108,10 +150,17 @@ export default function DialogDetail() {
 
       <div className="mt-6 flex flex-1 flex-col gap-3 overflow-y-auto scrollbar-thin pr-1">
         {dialog.messages.map((m) => (
-          <div key={m.id} className={`flex max-w-[75%] flex-col ${BUBBLE_STYLE[m.sender].includes('self-end') ? 'self-end items-end' : BUBBLE_STYLE[m.sender].includes('self-center') ? 'self-center items-center' : 'self-start items-start'}`}>
-            <div className={`rounded-xl2 px-4 py-2.5 text-sm ${BUBBLE_STYLE[m.sender]}`}>
-              {m.content}
-            </div>
+          <div
+            key={m.id}
+            className={`flex max-w-[75%] flex-col ${
+              BUBBLE_STYLE[m.sender].includes('self-end')
+                ? 'self-end items-end'
+                : BUBBLE_STYLE[m.sender].includes('self-center')
+                  ? 'self-center items-center'
+                  : 'self-start items-start'
+            }`}
+          >
+            <div className={`rounded-xl2 px-4 py-2.5 text-sm ${BUBBLE_STYLE[m.sender]}`}>{m.content}</div>
             <div className="mt-1 flex items-center gap-1.5 px-1 text-[11px] text-ink-600">
               <span>{SENDER_LABEL[m.sender]}</span>
               <span>·</span>
@@ -125,6 +174,7 @@ export default function DialogDetail() {
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       {!isClosed ? (
@@ -133,22 +183,21 @@ export default function DialogDetail() {
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             maxLength={4000}
+            disabled={sendingReply}
             placeholder="Ответить клиенту от своего имени..."
-            className="flex-1 rounded-lg border border-ink-700 bg-ink-900 px-3.5 py-2.5 text-sm text-ink-100 outline-none focus:border-signal"
+            className="flex-1 rounded-lg border border-ink-700 bg-ink-900 px-3.5 py-2.5 text-sm text-ink-100 outline-none focus:border-signal disabled:opacity-60"
           />
           <button
             type="submit"
-            disabled={sending || !reply.trim()}
+            disabled={sendingReply || !reply.trim()}
             className="flex items-center gap-2 rounded-lg bg-signal px-4 py-2.5 text-sm font-medium text-white hover:bg-signal-strong disabled:opacity-60"
           >
-            {sending && <Spinner size={14} />}
-            Отправить
+            {sendingReply && <Spinner size={14} />}
+            {sendingReply ? 'Отправляется...' : 'Отправить'}
           </button>
         </form>
       ) : (
-        <p className="mt-4 border-t border-ink-800 pt-4 text-center text-sm text-ink-600">
-          Диалог закрыт
-        </p>
+        <p className="mt-4 border-t border-ink-800 pt-4 text-center text-sm text-ink-600">Диалог закрыт</p>
       )}
 
       {error && <p className="mt-2 text-sm text-bad">{error}</p>}

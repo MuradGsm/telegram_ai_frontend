@@ -29,6 +29,13 @@ export function clearTokens() {
   localStorage.removeItem('refresh_token')
 }
 
+export function getAccessToken() {
+  return localStorage.getItem('access_token')
+}
+
+// wss:// для https-бэкенда, ws:// для http (локальная разработка)
+export const WS_URL = API_URL.replace(/^http/, 'ws')
+
 // подставляем access-токен в каждый запрос
 api.interceptors.request.use((config) => {
   const { access } = getTokens()

@@ -67,7 +67,15 @@ api.interceptors.response.use(
       try {
         if (!refreshPromise) {
           refreshPromise = axios
-            .post(`${API_URL}/auth/refresh`, { refresh_token: refresh })
+            .post(
+              `${API_URL}/auth/refresh`,
+              { refresh_token: refresh },
+              {
+                headers: {
+                  'ngrok-skip-browser-warning': 'true',
+                },
+              },
+            )
             .finally(() => {
               refreshPromise = null
             })

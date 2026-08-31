@@ -46,7 +46,7 @@ export default function Workspaces() {
         <div>
           <h1 className="font-display text-xl font-semibold text-ink-100 sm:text-2xl">Воркспейсы</h1>
           <p className="mt-1 text-xs text-ink-400 sm:text-sm">
-            Каждый воркспейс — это один Telegram-бот и его база знаний.
+            Управляйте базами знаний и подключайте каналы общения с клиентами.
           </p>
         </div>
         <button
@@ -113,7 +113,7 @@ export default function Workspaces() {
         ) : workspaces.length === 0 ? (
           <EmptyState
             title="Пока нет ни одного воркспейса"
-            hint="Создай первый, чтобы подключить Telegram-бота и базу знаний."
+            hint="Создай первый, чтобы подключить базы знаний и каналы связи."
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -127,16 +127,17 @@ export default function Workspaces() {
                   <p className="font-display text-sm font-medium text-ink-100 sm:text-base truncate">{w.name}</p>
                   <span
                     className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                      w.is_bot_active
+                      w.active_channels_count > 0
                         ? 'bg-good/10 text-good'
                         : 'bg-ink-700 text-ink-400'
                     }`}
                   >
-                    {w.is_bot_active ? 'бот активен' : 'не подключен'}
+                    {w.active_channels_count > 0
+                      ? `каналов: ${w.active_channels_count}`
+                      : 'нет каналов'}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-ink-400 sm:text-sm truncate">
-                  {w.telegram_bot_username ? `@${w.telegram_bot_username}` : 'Без бота'} ·{' '}
                   {w.timezone}
                 </p>
                 <div className="mt-4 flex items-center justify-between text-[11px] sm:text-xs text-ink-400 border-t border-ink-800/60 pt-3">

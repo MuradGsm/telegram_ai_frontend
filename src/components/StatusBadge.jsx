@@ -12,6 +12,12 @@ const DOCUMENT_STATUS = {
   failed: { label: 'Ошибка', dot: 'bg-bad', text: 'text-bad' },
 }
 
+const CHANNEL_CONFIG = {
+  telegram: { label: 'Telegram', color: 'text-sky-400 bg-sky-400/10' },
+  instagram: { label: 'Instagram', color: 'text-pink-400 bg-pink-400/10' },
+  whatsapp: { label: 'WhatsApp', color: 'text-emerald-400 bg-emerald-400/10' },
+}
+
 export function DialogStatusBadge({ status }) {
   const cfg = DIALOG_STATUS[status] || DIALOG_STATUS.closed
   return (
@@ -30,6 +36,15 @@ export function DocumentStatusBadge({ status, errorMessage }) {
       title={status === 'failed' ? errorMessage || undefined : undefined}
     >
       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </span>
+  )
+}
+
+export function ChannelTypeBadge({ type }) {
+  const cfg = CHANNEL_CONFIG[type] || { label: type, color: 'text-ink-300 bg-ink-800' }
+  return (
+    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider ${cfg.color}`}>
       {cfg.label}
     </span>
   )

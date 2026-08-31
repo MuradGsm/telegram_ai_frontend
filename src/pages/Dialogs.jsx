@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client'
 import Spinner from '../components/Spinner.jsx'
 import EmptyState from '../components/EmptyState.jsx'
-import { DialogStatusBadge } from '../components/StatusBadge.jsx'
+import { DialogStatusBadge, ChannelTypeBadge } from '../components/StatusBadge.jsx'
 
 const FILTERS = [
   { value: '', label: 'Все' },
@@ -40,9 +40,9 @@ export default function Dialogs() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10">
       <h1 className="font-display text-xl font-semibold text-ink-100 sm:text-2xl">Диалоги</h1>
-      <p className="mt-1 text-xs text-ink-400 sm:text-sm">Переписки бота с клиентами в Telegram.</p>
+      <p className="mt-1 text-xs text-ink-400 sm:text-sm">Переписки бота с клиентами из подключенных каналов.</p>
 
-      {/* Горизонтальный скролл фильтров для мобильных */}
+      {/* Горизонтальный скролл фильтров */}
       <div className="mt-4 sm:mt-6 flex gap-1.5 overflow-x-auto pb-2 scrollbar-none">
         {FILTERS.map((f) => (
           <button
@@ -67,7 +67,7 @@ export default function Dialogs() {
         ) : dialogs.length === 0 ? (
           <EmptyState
             title="Диалогов не найдено"
-            hint="Как только клиент напишет боту в Telegram, диалог появится здесь."
+            hint="Как только клиент напишет боту в любой из каналов, диалог появится здесь."
           />
         ) : (
           <div className="divide-y divide-ink-800 overflow-hidden rounded-xl border border-ink-700 bg-ink-900/40">
@@ -78,11 +78,14 @@ export default function Dialogs() {
                 className="flex w-full flex-col gap-2 p-3.5 sm:flex-row sm:items-center sm:justify-between sm:p-4 hover:bg-ink-900 transition-colors"
               >
                 <div className="min-w-0 flex-1 text-left">
-                  <p className="truncate text-sm font-medium text-ink-100">
-                    {d.customer_display_name || `Клиент #${d.customer_telegram_id}`}
-                  </p>
-                  <p className="mt-0.5 font-mono text-xs text-ink-600">
-                    id {d.customer_telegram_id}
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium text-ink-100">
+                      {d.customer_display_name || `ID: ${d.external_customer_id}`}
+                    </p>
+                    {d.channel_type && <ChannelTypeBadge type={d.channel_type} />}
+                  </div>
+                  <p className="mt-0.5 font-mono text-xs text-ink-600 truncate">
+                    id: {d.external_customer_id}
                   </p>
                 </div>
                 

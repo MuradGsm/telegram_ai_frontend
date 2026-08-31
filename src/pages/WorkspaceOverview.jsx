@@ -2,55 +2,67 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api, extractErrorMessage } from '../api/client'
 import Spinner from '../components/Spinner.jsx'
+import { ChannelTypeBadge } from '../components/StatusBadge.jsx'
 
 export default function WorkspaceOverview() {
   const { workspaceId } = useParams()
   const navigate = useNavigate()
   const [workspace, setWorkspace] = useState(null)
+  const [channels, setChannels] = useState([])
   const [loading, setLoading] = useState(true)
 
-  const [botToken, setBotToken] = useState('')
-  const [connecting, setConnecting] = useState(false)
+  const [telegramToken, setTelegramToken] = useState('')
+  const [connectingTg, setConnectingTg] = useState(false)
   const [connectError, setConnectError] = useState('')
-  const [connectSuccess, setConnectSuccess] = useState(false)
 
   const [ownerTelegramId, setOwnerTelegramId] = useState('')
   const [savingOwner, setSavingOwner] = useState(false)
-
   const [deleting, setDeleting] = useState(false)
 
   function load() {
     setLoading(true)
-    api
-      .get(`/workspaces/${workspaceId}`)
-      .then(({ data }) => {
-        setWorkspace(data)
-        setOwnerTelegramId(data.owner_telegram_id || '')
+    Promise.all([
+      api.get(`/workspaces/${workspaceId}`),
+      api.get(`/workspaces/${workspaceId}/channels`),
+    ])
+      .then(([{ data: wsData }, { data: chData }]) => {
+        setWorkspace(wsData)
+        setChannels(chData)
+        setOwnerTelegramId(wsData.owner_telegram_id || '')
       })
       .catch((err) => {
-        console.error('Ошибка загрузки воркспейса:', err)
+        console.error('Ошибка загрузки данных воркспейса:', err)
       })
       .finally(() => setLoading(false))
   }
 
   useEffect(load, [workspaceId])
 
-  async function handleConnect(e) {
+  async function handleConnectTelegram(e) {
     e.preventDefault()
     setConnectError('')
-    setConnectSuccess(false)
-    setConnecting(true)
+    setConnectingTg(true)
     try {
-      const { data } = await api.post(`/workspaces/${workspaceId}/connect-bot`, {
-        telegram_bot_token: botToken,
+      await api.post(`/workspaces/${workspaceId}/channels`, {
+        type: 'telegram',
+        credentials: { bot_token: telegramToken },
       })
-      setWorkspace(data)
-      setBotToken('')
-      setConnectSuccess(true)
+      setTelegramToken('')
+      load()
     } catch (err) {
       setConnectError(extractErrorMessage(err))
     } finally {
-      setConnecting(false)
+      setConnectingTg(false)
+    }
+  }
+
+  async function handleDeleteChannel(channelId) {
+    if (!confirm('Отключить этот канал?')) return
+    try {
+      await api.delete(`/workspaces/${workspaceId}/channels/${channelId}`)
+      load()
+    } catch (err) {
+      console.error('Ошибка удаления канала:', err)
     }
   }
 
@@ -59,18 +71,18 @@ export default function WorkspaceOverview() {
     setSavingOwner(true)
     try {
       const { data } = await api.patch(`/workspaces/${workspaceId}`, {
-        owner_telegram_id: ownerTelegramId ? Number(ownerTelegramId) : null,
+        owner_telegram_id: ownerTelegramId ? String(ownerTelegramId) : null,
       })
       setWorkspace(data)
     } catch (err) {
-      console.error('Ошибка сохранения владельца:', err)
+      console.error('Ошибка сохранения параметров владельца:', err)
     } finally {
       setSavingOwner(false)
     }
   }
 
-  async function handleDelete() {
-    if (!confirm(`Удалить воркспейс «${workspace.name}»? Это необратимо.`)) return
+  async function handleDeleteWorkspace() {
+    if (!confirm(`Удалить воркспейс «${workspace.name}»? Это действие необратимо.`)) return
     setDeleting(true)
     try {
       await api.delete(`/workspaces/${workspaceId}`)
@@ -95,77 +107,79 @@ export default function WorkspaceOverview() {
       <h1 className="font-display text-xl font-semibold text-ink-100 sm:text-2xl">{workspace.name}</h1>
       <p className="mt-1 text-xs text-ink-400 sm:text-sm">
         Тариф <span className="font-mono uppercase">{workspace.plan_tier}</span> ·{' '}
-        {workspace.messages_used_this_period} / {workspace.monthly_message_limit} сообщений
-        использовано в этом периоде
+        {workspace.messages_used_this_period} / {workspace.monthly_message_limit} сообщений в этом периоде
       </p>
 
-      {/* Подключение бота */}
+      {/* Подключенные каналы */}
       <section className="mt-6 rounded-xl border border-ink-700 bg-ink-900 p-4 sm:mt-8 sm:p-5">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="font-display text-sm font-medium text-ink-100 sm:text-base">Telegram-бот</h2>
-          <span
-            className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
-              workspace.is_bot_active ? 'bg-good/10 text-good' : 'bg-ink-700 text-ink-400'
-            }`}
-          >
-            {workspace.is_bot_active ? 'подключен' : 'не подключен'}
-          </span>
+        <h2 className="font-display text-sm font-medium text-ink-100 sm:text-base">Подключённые каналы</h2>
+        <p className="mt-1 text-xs text-ink-400">Каналы связи, откуда ассистент принимает обращения клиентов.</p>
+
+        <div className="mt-4 flex flex-col gap-2.5">
+          {channels.length === 0 ? (
+            <p className="py-2 text-xs text-ink-600">Нет активных каналов связи.</p>
+          ) : (
+            channels.map((ch) => (
+              <div key={ch.id} className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-950/60 p-3">
+                <div className="flex items-center gap-3">
+                  <ChannelTypeBadge type={ch.type} />
+                  <span className="text-xs font-mono text-ink-200">{ch.name || ch.id}</span>
+                </div>
+                <button
+                  onClick={() => handleDeleteChannel(ch.id)}
+                  className="text-xs font-medium text-ink-400 hover:text-bad"
+                >
+                  Отключить
+                </button>
+              </div>
+            ))
+          )}
         </div>
 
-        {workspace.telegram_bot_username && (
-          <p className="mt-2 text-xs text-ink-400 sm:text-sm">
-            Текущий бот: <span className="text-ink-100">@{workspace.telegram_bot_username}</span>
-          </p>
-        )}
-
-        <form onSubmit={handleConnect} className="mt-4">
+        {/* Добавление Telegram Bot */}
+        <form onSubmit={handleConnectTelegram} className="mt-5 border-t border-ink-800 pt-4">
           <label className="mb-1.5 block text-xs font-medium text-ink-200 sm:text-sm">
-            Токен бота от @BotFather
+            Подключить Telegram-бота (@BotFather token)
           </label>
           <div className="flex flex-col gap-2.5 sm:flex-row">
             <input
               required
               minLength={20}
-              disabled={connecting}
-              value={botToken}
-              onChange={(e) => setBotToken(e.target.value)}
+              disabled={connectingTg}
+              value={telegramToken}
+              onChange={(e) => setTelegramToken(e.target.value)}
               placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
               className="w-full flex-1 rounded-lg border border-ink-700 bg-ink-800 px-3.5 py-2.5 font-mono text-xs text-ink-100 outline-none transition-all placeholder:text-ink-600 focus:border-signal focus:ring-1 focus:ring-signal disabled:opacity-60 sm:text-sm"
             />
             <button
               type="submit"
-              disabled={connecting}
+              disabled={connectingTg}
               className="flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-signal px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-signal-strong disabled:opacity-60"
             >
-              {connecting && <Spinner size={14} />}
-              {connecting
-                ? 'Сохранение...'
-                : workspace.telegram_bot_username
-                ? 'Переподключить'
-                : 'Подключить'}
+              {connectingTg && <Spinner size={14} />}
+              {connectingTg ? 'Подключение...' : 'Подключить'}
             </button>
           </div>
-          {connectError && <p className="mt-2 text-xs sm:text-sm text-bad">{connectError}</p>}
-          {connectSuccess && <p className="mt-2 text-xs sm:text-sm text-good">Бот подключен.</p>}
+          {connectError && <p className="mt-2 text-xs text-bad">{connectError}</p>}
         </form>
       </section>
 
-      {/* Владелец в Telegram */}
+      {/* Уведомления владельца */}
       <section className="mt-4 rounded-xl border border-ink-700 bg-ink-900 p-4 sm:mt-6 sm:p-5">
         <h2 className="font-display text-sm font-medium text-ink-100 sm:text-base">
-          Telegram ID владельца
+          Уведомления для перевода на человека
         </h2>
         <p className="mt-1 text-xs text-ink-400 sm:text-sm">
-          Сюда бот пришлёт уведомление, если диалог нужно передать человеку.
+          Идентификатор владельца (Telegram Chat ID), куда эскалируются обращения при низкой уверенности бота.
         </p>
         <form onSubmit={handleSaveOwner} className="mt-4 flex flex-col gap-2.5 sm:flex-row">
           <input
-            type="number"
+            type="text"
             disabled={savingOwner}
             value={ownerTelegramId}
             onChange={(e) => setOwnerTelegramId(e.target.value)}
             placeholder="Например: 123456789"
-            className="w-full flex-1 rounded-lg border border-ink-700 bg-ink-800 px-3.5 py-2.5 text-xs text-ink-100 outline-none transition-all placeholder:text-ink-600 focus:border-signal focus:ring-1 focus:ring-signal disabled:opacity-60 sm:text-sm"
+            className="w-full flex-1 rounded-lg border border-ink-700 bg-ink-800 px-3.5 py-2.5 font-mono text-xs text-ink-100 outline-none transition-all placeholder:text-ink-600 focus:border-signal focus:ring-1 focus:ring-signal disabled:opacity-60 sm:text-sm"
           />
           <button
             type="submit"
@@ -182,10 +196,10 @@ export default function WorkspaceOverview() {
       <section className="mt-4 rounded-xl border border-bad/30 bg-bad/5 p-4 sm:mt-6 sm:p-5">
         <h2 className="font-display text-sm font-medium text-ink-100 sm:text-base">Удалить воркспейс</h2>
         <p className="mt-1 text-xs text-ink-400 sm:text-sm">
-          Бот, документы и все диалоги будут удалены без возможности восстановления.
+          Все подключенные каналы, загруженные документы базы знаний и переписки будут удалены безвозвратно.
         </p>
         <button
-          onClick={handleDelete}
+          onClick={handleDeleteWorkspace}
           disabled={deleting}
           className="mt-4 w-full rounded-lg border border-bad/40 px-4 py-2 text-sm font-medium text-bad transition-colors hover:bg-bad/10 disabled:opacity-60 sm:w-auto"
         >

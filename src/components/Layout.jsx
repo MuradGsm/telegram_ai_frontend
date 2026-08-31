@@ -109,7 +109,10 @@ export default function Layout() {
                 {current?.name || '...'}
               </div>
               <NavLink to={`/workspaces/${workspaceId}`} end className={navClass}>
-                Обзор и бот
+                Обзор
+              </NavLink>
+              <NavLink to={`/workspaces/${workspaceId}/channels`} className={navClass}>
+                Каналы и Интеграции
               </NavLink>
               <NavLink to={`/workspaces/${workspaceId}/documents`} className={navClass}>
                 База знаний

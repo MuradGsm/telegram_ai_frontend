@@ -135,7 +135,7 @@ export default function DialogDetail() {
             ← Все диалоги
           </Link>
           <h1 className="mt-1 font-display text-lg font-semibold text-ink-100 sm:text-xl break-words">
-            {dialog.customer_display_name || `Клиент #${dialog.customer_telegram_id}`}
+            {dialog.customer_display_name || `ID: ${dialog.external_customer_id}`}
           </h1>
           <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-600">
             <span className={`h-1.5 w-1.5 rounded-full ${connIndicator.dot}`} />

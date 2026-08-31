@@ -9,13 +9,19 @@ import Dialogs from './pages/Dialogs.jsx'
 import DialogDetail from './pages/DialogDetail.jsx'
 import Layout from './components/Layout.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
+import Spinner from './components/Spinner.jsx'
 
-// Обертка для публичных страниц: перенаправляет воркспейсы, если пользователь уже вошел
 function PublicOnlyRoute({ children }) {
   const { user, loading } = useAuth()
   const location = useLocation()
 
-  if (loading) return null
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-ink-950">
+        <Spinner />
+      </div>
+    )
+  }
 
   if (user) {
     const from = location.state?.from?.pathname || '/workspaces'

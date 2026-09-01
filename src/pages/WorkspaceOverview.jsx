@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, extractErrorMessage } from '../api/client'
+import { api, extractErrorMessage, API_URL } from '../api/client.js'
 import Spinner from '../components/Spinner.jsx'
 import { ChannelTypeBadge } from '../components/StatusBadge.jsx'
+
+function buildWidgetSnippet(channelId) {
+  return `<script src="${API_URL}/static/widget.js" data-channel-id="${channelId}"></script>`
+}
 
 export default function WorkspaceOverview() {
   const { workspaceId } = useParams()
@@ -14,6 +18,11 @@ export default function WorkspaceOverview() {
   const [telegramToken, setTelegramToken] = useState('')
   const [connectingTg, setConnectingTg] = useState(false)
   const [connectError, setConnectError] = useState('')
+
+  const [webOrigin, setWebOrigin] = useState('')
+  const [connectingWeb, setConnectingWeb] = useState(false)
+  const [webConnectError, setWebConnectError] = useState('')
+  const [copiedChannelId, setCopiedChannelId] = useState(null)
 
   const [ownerTelegramId, setOwnerTelegramId] = useState('')
   const [savingOwner, setSavingOwner] = useState(false)
@@ -53,6 +62,35 @@ export default function WorkspaceOverview() {
       setConnectError(extractErrorMessage(err))
     } finally {
       setConnectingTg(false)
+    }
+  }
+
+  async function handleConnectWeb(e) {
+    e.preventDefault()
+    setWebConnectError('')
+    setConnectingWeb(true)
+    try {
+      await api.post(`/workspaces/${workspaceId}/channels`, {
+        type: 'web',
+        credentials: { allowed_origin: webOrigin },
+      })
+      setWebOrigin('')
+      load()
+    } catch (err) {
+      setWebConnectError(extractErrorMessage(err))
+    } finally {
+      setConnectingWeb(false)
+    }
+  }
+
+  async function handleCopySnippet(channelId) {
+    const snippet = buildWidgetSnippet(channelId)
+    try {
+      await navigator.clipboard.writeText(snippet)
+      setCopiedChannelId(channelId)
+      setTimeout(() => setCopiedChannelId(null), 2000)
+    } catch {
+      // буфер обмена недоступен (например, не https) - просто игнорируем
     }
   }
 
@@ -120,17 +158,38 @@ export default function WorkspaceOverview() {
             <p className="py-2 text-xs text-ink-600">Нет активных каналов связи.</p>
           ) : (
             channels.map((ch) => (
-              <div key={ch.id} className="flex items-center justify-between rounded-lg border border-ink-800 bg-ink-950/60 p-3">
-                <div className="flex items-center gap-3">
-                  <ChannelTypeBadge type={ch.type} />
-                  <span className="text-xs font-mono text-ink-200">{ch.name || ch.id}</span>
+              <div key={ch.id} className="rounded-lg border border-ink-800 bg-ink-950/60 p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <ChannelTypeBadge type={ch.type} />
+                    <span className="text-xs font-mono text-ink-200">{ch.name || ch.id}</span>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteChannel(ch.id)}
+                    className="text-xs font-medium text-ink-400 hover:text-bad"
+                  >
+                    Отключить
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleDeleteChannel(ch.id)}
-                  className="text-xs font-medium text-ink-400 hover:text-bad"
-                >
-                  Отключить
-                </button>
+
+                {ch.type === 'web' && (
+                  <div className="mt-3 border-t border-ink-800/60 pt-3">
+                    <p className="mb-1.5 text-[11px] text-ink-500">
+                      Вставь этот код перед {'</body>'} на сайте {ch.credentials?.allowed_origin || ''}:
+                    </p>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <code className="flex-1 overflow-x-auto whitespace-nowrap rounded-md bg-ink-950 px-2.5 py-2 font-mono text-[11px] text-ink-300 scrollbar-none">
+                        {buildWidgetSnippet(ch.id)}
+                      </code>
+                      <button
+                        onClick={() => handleCopySnippet(ch.id)}
+                        className="shrink-0 rounded-md border border-ink-700 px-3 py-1.5 text-[11px] font-medium text-ink-200 hover:bg-ink-800"
+                      >
+                        {copiedChannelId === ch.id ? 'Скопировано ✓' : 'Скопировать'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -161,6 +220,36 @@ export default function WorkspaceOverview() {
             </button>
           </div>
           {connectError && <p className="mt-2 text-xs text-bad">{connectError}</p>}
+        </form>
+
+        {/* Добавление Web-виджета */}
+        <form onSubmit={handleConnectWeb} className="mt-5 border-t border-ink-800 pt-4">
+          <label className="mb-1.5 block text-xs font-medium text-ink-200 sm:text-sm">
+            Подключить чат-виджет для сайта
+          </label>
+          <p className="mb-2.5 text-[11px] text-ink-500">
+            Укажи домен сайта, где будет установлен виджет (например: https://mysite.com)
+          </p>
+          <div className="flex flex-col gap-2.5 sm:flex-row">
+            <input
+              required
+              type="url"
+              disabled={connectingWeb}
+              value={webOrigin}
+              onChange={(e) => setWebOrigin(e.target.value)}
+              placeholder="https://mysite.com"
+              className="w-full flex-1 rounded-lg border border-ink-700 bg-ink-800 px-3.5 py-2.5 font-mono text-xs text-ink-100 outline-none transition-all placeholder:text-ink-600 focus:border-signal focus:ring-1 focus:ring-signal disabled:opacity-60 sm:text-sm"
+            />
+            <button
+              type="submit"
+              disabled={connectingWeb}
+              className="flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-signal px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-signal-strong disabled:opacity-60"
+            >
+              {connectingWeb && <Spinner size={14} />}
+              {connectingWeb ? 'Подключение...' : 'Подключить'}
+            </button>
+          </div>
+          {webConnectError && <p className="mt-2 text-xs text-bad">{webConnectError}</p>}
         </form>
       </section>
 

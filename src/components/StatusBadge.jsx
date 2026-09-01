@@ -16,6 +16,7 @@ const CHANNEL_CONFIG = {
   telegram: { label: 'Telegram', color: 'text-sky-400 bg-sky-400/10' },
   instagram: { label: 'Instagram', color: 'text-pink-400 bg-pink-400/10' },
   whatsapp: { label: 'WhatsApp', color: 'text-emerald-400 bg-emerald-400/10' },
+  web: { label: 'Web Widget', color: 'text-indigo-400 bg-indigo-400/10' },
 }
 
 export function DialogStatusBadge({ status }) {

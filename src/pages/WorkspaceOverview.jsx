@@ -24,6 +24,11 @@ export default function WorkspaceOverview() {
   const [webConnectError, setWebConnectError] = useState('')
   const [copiedChannelId, setCopiedChannelId] = useState(null)
 
+  const [waAccessToken, setWaAccessToken] = useState('')
+  const [waPhoneNumberId, setWaPhoneNumberId] = useState('')
+  const [connectingWa, setConnectingWa] = useState(false)
+  const [waConnectError, setWaConnectError] = useState('')
+
   const [ownerTelegramId, setOwnerTelegramId] = useState('')
   const [savingOwner, setSavingOwner] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -80,6 +85,28 @@ export default function WorkspaceOverview() {
       setWebConnectError(extractErrorMessage(err))
     } finally {
       setConnectingWeb(false)
+    }
+  }
+
+  async function handleConnectWhatsapp(e) {
+    e.preventDefault()
+    setWaConnectError('')
+    setConnectingWa(true)
+    try {
+      await api.post(`/workspaces/${workspaceId}/channels`, {
+        type: 'whatsapp',
+        credentials: {
+          access_token: waAccessToken,
+          phone_number_id: waPhoneNumberId,
+        },
+      })
+      setWaAccessToken('')
+      setWaPhoneNumberId('')
+      load()
+    } catch (err) {
+      setWaConnectError(extractErrorMessage(err))
+    } finally {
+      setConnectingWa(false)
     }
   }
 
@@ -190,6 +217,14 @@ export default function WorkspaceOverview() {
                     </div>
                   </div>
                 )}
+
+                {ch.type === 'whatsapp' && ch.credentials?.display_phone_number && (
+                  <div className="mt-3 border-t border-ink-800/60 pt-3">
+                    <p className="text-[11px] text-ink-500">
+                      Номер: <span className="font-mono text-ink-300">{ch.credentials.display_phone_number}</span>
+                    </p>
+                  </div>
+                )}
               </div>
             ))
           )}
@@ -250,6 +285,44 @@ export default function WorkspaceOverview() {
             </button>
           </div>
           {webConnectError && <p className="mt-2 text-xs text-bad">{webConnectError}</p>}
+        </form>
+
+        {/* Добавление WhatsApp */}
+        <form onSubmit={handleConnectWhatsapp} className="mt-5 border-t border-ink-800 pt-4">
+          <label className="mb-1.5 block text-xs font-medium text-ink-200 sm:text-sm">
+            Подключить WhatsApp (Meta Cloud API)
+          </label>
+          <p className="mb-2.5 text-[11px] text-ink-500">
+            Access Token и Phone Number ID берутся из Meta for Developers → WhatsApp → API Setup
+          </p>
+          <div className="flex flex-col gap-2.5">
+            <input
+              required
+              disabled={connectingWa}
+              value={waPhoneNumberId}
+              onChange={(e) => setWaPhoneNumberId(e.target.value)}
+              placeholder="Phone Number ID, например: 1279601971905427"
+              className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3.5 py-2.5 font-mono text-xs text-ink-100 outline-none transition-all placeholder:text-ink-600 focus:border-signal focus:ring-1 focus:ring-signal disabled:opacity-60 sm:text-sm"
+            />
+            <input
+              required
+              type="password"
+              disabled={connectingWa}
+              value={waAccessToken}
+              onChange={(e) => setWaAccessToken(e.target.value)}
+              placeholder="Access Token"
+              className="w-full rounded-lg border border-ink-700 bg-ink-800 px-3.5 py-2.5 font-mono text-xs text-ink-100 outline-none transition-all placeholder:text-ink-600 focus:border-signal focus:ring-1 focus:ring-signal disabled:opacity-60 sm:text-sm"
+            />
+            <button
+              type="submit"
+              disabled={connectingWa}
+              className="flex items-center justify-center gap-2 rounded-lg bg-signal px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-signal-strong disabled:opacity-60 sm:self-start sm:px-6"
+            >
+              {connectingWa && <Spinner size={14} />}
+              {connectingWa ? 'Подключение...' : 'Подключить'}
+            </button>
+          </div>
+          {waConnectError && <p className="mt-2 text-xs text-bad">{waConnectError}</p>}
         </form>
       </section>
 
